@@ -1,0 +1,168 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+env:
+  PYTHON_VERSION: "3.9"
+
+jobs:
+  lint-and-test:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check src tests data
+
+      - name: Format check (black)
+        run: black --check src tests data
+
+      - name: Unit tests (pytest)
+        run: |
+          pytest -v --junitxml=reports/pytest-results.xml \
+                     --cov=src --cov-report=xml:reports/coverage.xml --cov-report=term
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            reports/pytest-results.xml
+            reports/coverage.xml
+
+  train:
+    name: Train Model & Track Experiments
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Download dataset
+        run: python data/download_data.py
+
+      - name: Preprocess dataset
+        run: python -m src.data.preprocess
+
+      - name: Train models (with MLflow tracking)
+        run: python -m src.models.train
+
+      - name: Upload trained model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: models/model.pkl
+
+      - name: Upload MLflow tracking store
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlruns
+          path: mlruns/
+
+      - name: Upload training reports & plots
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-reports
+          path: |
+            reports/model_comparison.csv
+            reports/screenshots/*.png
+
+  docker-build-test:
+    name: Build & Smoke-Test Docker Image
+    needs: train
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download freshly trained model
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: models/
+
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t heart-disease-api:${{ github.sha }} .
+
+      - name: Run container
+        run: docker run -d --name heart-disease-api-test -p 8000:8000 heart-disease-api:${{ github.sha }}
+
+      - name: Wait for API to become healthy
+        run: |
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8000/health; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Waiting for API... ($i)"
+            sleep 3
+          done
+          echo "API did not become healthy in time"
+          docker logs heart-disease-api-test
+          exit 1
+
+      - name: Smoke-test /predict with a sample payload
+        run: |
+          response=$(curl -sf -X POST http://localhost:8000/predict \
+            -H "Content-Type: application/json" \
+            -d '{"age":63,"sex":1,"cp":1,"trestbps":145,"chol":233,"fbs":1,"restecg":2,"thalach":150,"exang":0,"oldpeak":2.3,"slope":3,"ca":0,"thal":6}')
+          echo "$response"
+          echo "$response" | grep -q '"prediction"' || (echo "Response missing prediction field" && exit 1)
+
+      - name: Dump container logs
+        if: always()
+        run: docker logs heart-disease-api-test
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f heart-disease-api-test
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          IMAGE_REPO=$(echo "ghcr.io/${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker tag heart-disease-api:${{ github.sha }} "$IMAGE_REPO:${{ github.sha }}"
+          docker tag heart-disease-api:${{ github.sha }} "$IMAGE_REPO:latest"
+          docker push "$IMAGE_REPO:${{ github.sha }}"
+          docker push "$IMAGE_REPO:latest"
