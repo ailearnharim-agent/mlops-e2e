@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data (raw is fetched via download script, not committed)
+data/raw/*
+!data/raw/.gitkeep
+
+# MLflow local tracking store
+mlruns/*
+!mlruns/.gitkeep
+mlartifacts/
+
+# Model artifacts other than the committed final model
+models/*.joblib
+models/*.onnx
+
+# Docker / local env
+.env
+*.log
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Helm
+k8s/helm/**/charts/
+k8s/helm/**/*.tgz

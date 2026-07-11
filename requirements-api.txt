@@ -1,0 +1,15 @@
+# Minimal runtime dependencies for the serving container.
+# (Training-only deps like mlflow, matplotlib, seaborn, ucimlrepo are intentionally excluded
+# to keep the production image small.)
+setuptools<81
+
+numpy==1.26.4
+scipy==1.11.4
+pandas==2.0.3
+scikit-learn==1.3.2
+joblib==1.4.2
+
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.4
+prometheus-client==0.20.0
