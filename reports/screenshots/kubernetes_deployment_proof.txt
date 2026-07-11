@@ -1,0 +1,45 @@
+$ minikube status
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+
+
+$ kubectl get pods -n heart-disease-mlops -o wide
+NAME                                 READY   STATUS    RESTARTS   AGE     IP           NODE       NOMINATED NODE   READINESS GATES
+heart-disease-api-7c5758cf6f-2qd4d   1/1     Running   0          2m37s   10.244.0.6   minikube   <none>           <none>
+heart-disease-api-7c5758cf6f-gtdkp   1/1     Running   0          2m37s   10.244.0.7   minikube   <none>           <none>
+
+$ kubectl get svc,ingress,hpa -n heart-disease-mlops
+NAME                            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+service/heart-disease-api-svc   ClusterIP   10.106.63.134   <none>        80/TCP    2m37s
+
+NAME                                                  CLASS   HOSTS                 ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/heart-disease-api-ingress   nginx   heart-disease.local   192.168.49.2   80      2m37s
+
+NAME                                                        REFERENCE                      TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/heart-disease-api-hpa   Deployment/heart-disease-api   cpu: <unknown>/70%   2         5         2          2m37s
+
+$ kubectl get deployment heart-disease-api -n heart-disease-mlops
+NAME                READY   UP-TO-DATE   AVAILABLE   AGE
+heart-disease-api   2/2     2            2           2m37s
+
+$ kubectl port-forward -n heart-disease-mlops svc/heart-disease-api-svc 8080:80 &
+$ curl http://localhost:8080/health
+{"status":"ok","model_loaded":true}
+
+$ curl -X POST http://localhost:8080/predict -d '{...sample patient...}'
+{"prediction":0,"label":"No disease","confidence":0.7373031339021849,"model_version":"HistGradientBoostingClassifier-1.0.0"}
+
+$ kubectl describe deployment heart-disease-api -n heart-disease-mlops | grep -A5 'Pod Template'
+Pod Template:
+  Labels:       app=heart-disease-api
+  Annotations:  prometheus.io/path: /metrics
+                prometheus.io/port: 8000
+                prometheus.io/scrape: true
+  Containers:
+   api:
+    Image:      heart-disease-api:local
+    Port:       8000/TCP (http)
