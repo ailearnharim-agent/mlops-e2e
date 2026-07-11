@@ -1,0 +1,23 @@
+=== docker compose ps ===
+NAME                       IMAGE                     COMMAND                  SERVICE      CREATED              STATUS                        PORTS
+heart-disease-api          heart-disease-api:local   "uvicorn src.api.mai…"   api          About a minute ago   Up About a minute (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+heart-disease-grafana      grafana/grafana:11.1.0    "/run.sh"                grafana      About a minute ago   Up About a minute             0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+heart-disease-prometheus   prom/prometheus:v2.53.0   "/bin/prometheus --c…"   prometheus   About a minute ago   Up About a minute             0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp
+
+=== Prometheus target health ===
+                    "job": "heart-disease-api"
+                },
+                "labels": {
+                    "instance": "api:8000",
+                    "job": "heart-disease-api"
+                },
+                "scrapePool": "heart-disease-api",
+                "scrapeUrl": "http://api:8000/metrics",
+
+=== Sample metrics scrape from API ===
+api_requests_total{endpoint="/metrics",http_status="200",method="GET"} 21.0
+api_requests_total{endpoint="/health",http_status="200",method="GET"} 32.0
+api_requests_total{endpoint="/predict",http_status="422",method="POST"} 9.0
+api_requests_total{endpoint="/predict",http_status="200",method="POST"} 43.0
+predictions_total{predicted_class="0"} 29.0
+predictions_total{predicted_class="1"} 14.0

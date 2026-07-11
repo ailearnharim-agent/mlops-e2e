@@ -1,0 +1,29 @@
+$ docker build -f docker/Dockerfile -t heart-disease-api:local .
+... (build succeeded, image sha256:7b10995864320bccb70bb243907e0a806c7810c2ead524c71fd1005a581841fe) ...
+
+$ docker ps --filter name=heart-disease-api-local
+CONTAINER ID   IMAGE                     COMMAND                  CREATED          STATUS                    PORTS                                         NAMES
+8e51316487bb   heart-disease-api:local   "uvicorn src.api.mai…"   29 seconds ago   Up 28 seconds (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   heart-disease-api-local
+
+$ curl http://localhost:8000/health
+{"status":"ok","model_loaded":true}
+
+$ curl -X POST http://localhost:8000/predict -d '{...sample patient...}'
+{"prediction":0,"label":"No disease","confidence":0.7373031339021849,"model_version":"HistGradientBoostingClassifier-1.0.0"}
+
+$ docker logs heart-disease-api-local
+{"timestamp": "2026-07-11T16:01:48+0000", "level": "INFO", "logger": "heart_disease_api", "message": "model_loaded", "model_class": "HistGradientBoostingClassifier", "model_path": "/app/models/model.pkl"}
+{"timestamp": "2026-07-11T16:01:49+0000", "level": "INFO", "logger": "heart_disease_api", "message": "request_handled", "method": "GET", "path": "/health", "status_code": 200, "duration_ms": 2.93, "client": "192.168.65.1"}
+INFO:     192.168.65.1:49999 - "GET /health HTTP/1.1" 200 OK
+{"timestamp": "2026-07-11T16:01:49+0000", "level": "INFO", "logger": "heart_disease_api", "message": "request_handled", "method": "GET", "path": "/health", "status_code": 200, "duration_ms": 1.19, "client": "192.168.65.1"}
+INFO:     192.168.65.1:58029 - "GET /health HTTP/1.1" 200 OK
+{"timestamp": "2026-07-11T16:01:50+0000", "level": "INFO", "logger": "heart_disease_api", "message": "prediction_made", "prediction": 0, "confidence": 0.7373}
+{"timestamp": "2026-07-11T16:01:50+0000", "level": "INFO", "logger": "heart_disease_api", "message": "request_handled", "method": "POST", "path": "/predict", "status_code": 200, "duration_ms": 47.68, "client": "192.168.65.1"}
+INFO:     192.168.65.1:47460 - "POST /predict HTTP/1.1" 200 OK
+{"timestamp": "2026-07-11T16:01:50+0000", "level": "INFO", "logger": "heart_disease_api", "message": "request_handled", "method": "GET", "path": "/health", "status_code": 200, "duration_ms": 1.38, "client": "127.0.0.1"}
+INFO:     127.0.0.1:60510 - "GET /health HTTP/1.1" 200 OK
+{"timestamp": "2026-07-11T16:02:13+0000", "level": "INFO", "logger": "heart_disease_api", "message": "request_handled", "method": "GET", "path": "/health", "status_code": 200, "duration_ms": 13.07, "client": "192.168.65.1"}
+INFO:     192.168.65.1:43446 - "GET /health HTTP/1.1" 200 OK
+{"timestamp": "2026-07-11T16:02:13+0000", "level": "INFO", "logger": "heart_disease_api", "message": "prediction_made", "prediction": 0, "confidence": 0.7373}
+{"timestamp": "2026-07-11T16:02:13+0000", "level": "INFO", "logger": "heart_disease_api", "message": "request_handled", "method": "POST", "path": "/predict", "status_code": 200, "duration_ms": 106.24, "client": "192.168.65.1"}
+INFO:     192.168.65.1:60476 - "POST /predict HTTP/1.1" 200 OK
