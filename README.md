@@ -167,4 +167,3 @@ The script prints both an Ingress URL and a `kubectl port-forward` fallback.
 
 - Full report: [`reports/MLOps_Heart_Disease_Report.docx`](reports/MLOps_Heart_Disease_Report.docx)
 - Screenshots: [`reports/screenshots/`](reports/screenshots/)
-- Video walkthrough script/checklist: [`VIDEO_SCRIPT.md`](VIDEO_SCRIPT.md)
